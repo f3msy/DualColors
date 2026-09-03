@@ -21,9 +21,7 @@ pip install pydualsense hidapi
 
 ## Usage
 
-### Python CLI
 ```bash
-cd py
 python main.py
 ```
 
