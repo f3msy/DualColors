@@ -22,6 +22,8 @@ pip install pydualsense hidapi
 
 ## Usage
 
+Run the `start.bat` file by double-clicking it, or follow the steps below.
+
 ### Powershell
 ```bash
 cd "The path of the folder"
