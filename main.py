@@ -1,10 +1,9 @@
 from __future__ import annotations
-
 import time
+
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, Optional, Tuple
-
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -19,9 +18,8 @@ except ImportError:
 
 console = Console()
 
-Color_File = Path(__file__).parent.parent / "colors.txt"
+Color_File = Path("colors.txt")
 RGB = Tuple[int, int, int]
-
 
 @dataclass
 class AppState:
@@ -30,7 +28,6 @@ class AppState:
     connected: bool = False
     current_color: Optional[str] = None
     current_rgb: Optional[RGB] = None
-
 
 class ColorLibrary:
     @staticmethod
@@ -91,7 +88,6 @@ def rgb_swatch(rgb: RGB, width: int = 24) -> Text:
     r, g, b = rgb
     return Text("█" * width, style=f"rgb({r},{g},{b})")
 
-
 class Controller:
     @staticmethod
     def connect() -> Optional[object]:
@@ -125,12 +121,11 @@ class Controller:
 def print_header(state: AppState) -> None:
     status = "[green]● Connected[/green]" if state.connected else "[red]● Not Connected[/red]"
     console.print(Panel(
-        "[bold cyan]Astro[/bold cyan]\n"
-        "[dim]Manage your DualSense controller's color[/dim]",
+        "[bold cyan]DualColors[/bold cyan]\n"
+        "[dim]A tool for managing your DualSense Controller's RGB lighting.[/dim]",
         border_style="cyan",
     ))
     console.print(f"  Controller: {status}\n")
-
 
 def print_menu() -> str:
     menu = Table.grid(padding=(0, 2))
@@ -145,13 +140,11 @@ def print_menu() -> str:
     console.print(Panel(menu, title="Menu", border_style="blue"))
     return Prompt.ask("Select an option", choices=["1", "2", "3", "4", "5"], default="1")
 
-
 def print_error(message: str, details: str = "") -> None:
     body = f"[bold red]Error[/bold red]\n\n{message}"
     if details:
         body += f"\n\n[dim]{details}[/dim]"
     console.print(Panel(body, title="Error", border_style="red"))
-
 
 def print_colors_table(colors: Dict[str, str]) -> None:
     table = Table(title="Available Colors", box=box.ROUNDED)
@@ -165,7 +158,6 @@ def print_colors_table(colors: Dict[str, str]) -> None:
 
     console.print(table)
 
-
 def print_status(state: AppState) -> None:
     status_text = "[green]Connected[/green]" if state.connected else "[red]Disconnected[/red]"
     border_style = "green" if state.connected else "red"
@@ -178,7 +170,6 @@ def print_status(state: AppState) -> None:
         title="Info",
         border_style=border_style,
     ))
-
 
 def action_select_color(state: AppState) -> None:
     console.clear()
@@ -200,8 +191,8 @@ def action_select_color(state: AppState) -> None:
         rgb = tuple(int(v) for v in state.colors[name].split(","))
 
         if Controller.set_color(state.controller, rgb):
-            console.print(f"[bold]{name} - RGB {rgb}[/bold]")
-            console.print(rgb_swatch(rgb))
+            r, g, b = rgb
+            console.print(f"[rgb({r},{g},{b}) bold]{name}[/rgb({r},{g},{b}) bold] - RGB {rgb}")
             state.current_color, state.current_rgb = name, rgb
         else:
             console.print("[red]Failed to set color[/red]")
@@ -209,10 +200,9 @@ def action_select_color(state: AppState) -> None:
         if not Confirm.ask("\nSelect another color?", default=False):
             return
 
-
 def action_rainbow_mode(state: AppState) -> None:
     console.clear()
-    console.print(Panel("[bold]RGB [green]Enabled[/green][/bold]\n\nPress CTRL+C to stop", border_style="cyan"))
+    console.print(Panel("[bold]RGB [green]Enabled[/green][/bold]\n\nPress CTRL+C to stop\n\nIf you close this Window, the RGB Mode will automatically stop.", border_style="cyan"))
 
     hue = 0.0
     try:
@@ -225,13 +215,13 @@ def action_rainbow_mode(state: AppState) -> None:
             time.sleep(0.05)
     except KeyboardInterrupt:
         console.print("\n[yellow]RGB stopped.[/yellow]")
-
+        state.controller.light.setColorI(0,0,145) # automatically set the color to default (darkish blue) when RGB mode stops
+        state.current_color = "Default"
 
 def action_list_colors(state: AppState) -> None:
     console.clear()
     print_colors_table(state.colors)
     Prompt.ask("\nPress Enter to continue", default="")
-
 
 def action_show_status(state: AppState) -> None:
     console.clear()
@@ -247,7 +237,6 @@ Menu_Options = {
 }
 Connection_Req = {"1", "2", "4"}
 
-
 def initialize() -> AppState:
     state = AppState()
 
@@ -260,7 +249,6 @@ def initialize() -> AppState:
         console.print(f"[yellow]⚠ {skipped} invalid color entries were skipped.[/yellow]\n")
 
     return state
-
 
 def main() -> None:
     console.clear()
@@ -296,14 +284,17 @@ def main() -> None:
 
             Menu_Options[choice](state)
     finally:
-        Controller.close(state.controller)
-        console.print("[yellow]Closing...[/yellow]")
+        try:
+            state.controller.light.setColorI(0,0,145) # set color to default when closing / stopping the tool
+        except Exception:
+            pass
+        console.print("[yellow]Stopping...[/yellow]")
 
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        console.print("\n[bold][yellow]Interrupted[/yellow][/bold]")
+        console.print("\n[bold][yellow]You can now close this window.[/yellow][/bold]")
     except Exception as exc:
         print_error("Unexpected error occurred", str(exc))
